@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>OKLab Color Picker</title>
+        <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+        <style>
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            :root {
+                --bg: #0e0e10;
+                --surface: #16161a;
+                --border: #303038;
+                --text: #f0f0f4;
+                --label: #c8c8d0;
+                --muted: #888898;
+            }
+
+            body,
+            html {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+
+            body {
+                background: var(--surface);
+                min-height: 100dvh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-family: 'JetBrains Mono', monospace;
+                color: var(--text);
+            }
+
+            button {
+                user-select: none;
+                cursor: pointer;
+            }
+
+            .picker-shell {
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                background: var(--surface);
+                padding-top: 10px;
+                max-width: calc(100vw - 8px);
+            }
+
+            /* ── Wheel ─────────────────────────────────────────────────────── */
+            .wheel-wrap {
+                position: relative;
+                flex-shrink: 0;
+                /* width / height set by JS */
+            }
+
+            #hue-canvas {
+                position: absolute;
+                top: 0;
+                left: 0;
+                cursor: crosshair;
+            }
+
+            #sq-canvas {
+                position: absolute;
+                cursor: crosshair;
+                image-rendering: pixelated;
+            }
+
+            .hue-thumb {
+                position: absolute;
+                width: 16px;
+                height: 16px;
+                border-radius: 50%;
+                border: 2.5px solid #fff;
+                box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.75);
+                pointer-events: none;
+                transform: translate(-50%, -50%);
+            }
+
+            .sq-thumb {
+                position: absolute;
+                width: 13px;
+                height: 13px;
+                border-radius: 50%;
+                border: 2.5px solid #fff;
+                box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.75);
+                pointer-events: none;
+                transform: translate(-50%, -50%);
+            }
+
+            /* ── Ring buttons (shared) ──────────────────────────────────────── */
+            .ring-btn {
+                position: absolute;
+                z-index: 10;
+                background: #111114;
+                border: 1px solid var(--border);
+                color: var(--label);
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 8px;
+                letter-spacing: 0.13em;
+                text-transform: uppercase;
+                padding: 4px 7px;
+                cursor: pointer;
+                line-height: 1.4;
+                user-select: none;
+                white-space: nowrap;
+                transition: color 0.13s, border-color 0.13s, background 0.13s, opacity 0.13s;
+            }
+
+            .ring-btn:hover {
+                color: var(--text);
+                border-color: #55555f;
+                background: #1a1a1e;
+            }
+
+            /* Positions */
+            #close-btn {
+                position: fixed;
+                top: 15px;
+                left: 5px;
+                width: 20px;
+            }
+
+            #alpha-toggle-btn {
+                position: fixed;
+                top: 40px;
+                left: 5px;
+                width: 20px;
+            }
+
+            #mode-toggle {
+                color: #333;
+                position: fixed;
+                top: 15px;
+                right: 5px;
+            }
+
+            /* active/inactive state helpers */
+            .ring-btn .active-span {
+                color: var(--text);
+            }
+
+            .ring-btn .sep-span {
+                color: #444450;
+                margin: 0 2px;
+            }
+
+            .ring-btn.dimmed {
+                opacity: 0.38;
+            }
+
+            /* ── Alpha slider ───────────────────────────────────────────────── */
+            .slider-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                width: 100%;
+            }
+
+            .slider-label {
+                font-size: 9px;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                color: var(--label);
+                user-select: none;
+                width: 28px;
+                flex-shrink: 0;
+            }
+
+            .slider-outer {
+                flex: 1;
+                position: relative;
+                height: 24px;
+                cursor: pointer;
+            }
+
+            .slider-track {
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                height: 12px;
+            }
+
+            #alpha-canvas {
+                display: block;
+                width: 100%;
+                height: 100%;
+                position: absolute;
+                top: 0;
+                left: 0;
+            }
+
+            .slider-thumb {
+                position: absolute;
+                top: 50%;
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                background: #fff;
+                border: 2.5px solid rgba(255, 255, 255, 0.95);
+                box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.65);
+                transform: translate(-50%, -50%);
+                pointer-events: none;
+            }
+
+            /* ── Preview ────────────────────────────────────────────────────── */
+            .preview-row {
+                display: flex;
+                gap: 12px;
+                width: 100%;
+                align-items: stretch;
+            }
+
+            .swatch {
+                width: 48px;
+                flex-shrink: 0;
+                position: relative;
+                border: 1px solid var(--border);
+                min-height: 56px;
+            }
+
+            .swatch::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: repeating-conic-gradient(#2a2a2e 0% 25%, #16161a 0% 50%) 0 0 / 8px 8px;
+            }
+
+            .swatch-fill {
+                position: absolute;
+                inset: 0;
+            }
+
+            .values {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                gap: 5px;
+            }
+
+            .val-line {
+                font-size: 10px;
+                display: flex;
+                gap: 8px;
+                align-items: baseline;
+            }
+
+            .val-line .vl {
+                color: var(--label);
+                width: 28px;
+                font-size: 8.5px;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                flex-shrink: 0;
+            }
+
+            .val-line .vv {
+                color: var(--text);
+                font-size: 10px;
+                letter-spacing: 0.04em;
+            }
+
+            /* ── Bottom row ─────────────────────────────────────────────────── */
+            .qr-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vw;
+                z-index: 999;
+                display: flex;
+                box-sizing: border-box;
+                flex-direction: column;
+                padding: 15px;
+                font-size: 9pt;
+                align-items: center;
+                background-color: rgba(0, 0, 0, 0.75);
+            }
+
+            .qr-btn {
+                background: #0a0a0c;
+                border: 1px solid var(--border);
+                color: var(--label);
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 10.5px;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                padding: 8px 11px;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: color 0.15s, border-color 0.15s;
+            }
+
+            .qr-btn:hover {
+                color: var(--text);
+                border-color: #55555f;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="picker-shell" id="picker-shell">
+            <div class="wheel-wrap" id="wheel-wrap">
+                <canvas id="hue-canvas"></canvas>
+                <canvas id="sq-canvas"></canvas>
+                <div class="hue-thumb" id="hue-thumb"></div>
+                <div class="sq-thumb" id="sq-thumb"></div>
+                <!-- top-left: close page -->
+                <button class="ring-btn" id="close-btn" title="Close">✕</button>
+                <!-- bottom-left: alpha slider toggle -->
+                <button class="ring-btn" id="alpha-toggle-btn" title="Toggle alpha">α</button>
+                <!-- bottom-right: HSV / HSL mode -->
+                <button class="ring-btn" id="mode-toggle">
+                    <span id="mode-a" class="active-span">V</span>
+                    <span class="sep-span">/</span>
+                    <span id="mode-b">L</span>
+                </button>
+            </div>
+            <div class="slider-row" id="alpha-row">
+                <div class="slider-label" id="alpha-label">100%</div>
+                <div class="slider-outer" id="alpha-outer">
+                    <div class="slider-track" id="alpha-track">
+                        <canvas id="alpha-canvas"></canvas>
+                    </div>
+                    <div class="slider-thumb" id="alpha-thumb"></div>
+                </div>
+            </div>
+            <div class="preview-row" id="preview-row">
+                <div class="swatch">
+                    <div class="swatch-fill" id="swatch-fill"></div>
+                </div>
+                <div class="values">
+                    <div class="val-line">
+                        <span class="vl">Hex</span>
+                        <span class="vv" id="val-hex">#000000</span>
+                    </div>
+                    <div class="val-line">
+                        <span class="vl">RGB</span>
+                        <span class="vv" id="val-rgb">0 0 0</span>
+                    </div>
+                    <div class="val-line">
+                        <span class="vl" id="val-mode-label">HSV</span>
+                        <span class="vv" id="val-hsv">0° 0% 0%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="qr-overlay" id="qr-overlay">
+                <p>Go to File > Connect to Smartphone and make sure the QR code is visible on the screen</p>
+                <br>
+                <button class="qr-btn" id="qr-btn">Locate QR</button>
+            </div>
+        </div>
+        <script>
+// ════════════════════════════════════════════════════════════════════
+//  OKLab / OKHSV / OKHSL  —  translated from Björn Ottosson ok_color.h
+// ════════════════════════════════════════════════════════════════════
+const PI = Math.PI;
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+function srgb_tf(a) {
+    return a <= 0.0031308 ? 12.92 * a : 1.055 * Math.pow(a, 1 / 2.4) - 0.055;
+}
+
+function srgb_tf_inv(a) {
+    return a > 0.04045 ? Math.pow((a + 0.055) / 1.055, 2.4) : a / 12.92;
+}
+
+function linear_srgb_to_oklab(r, g, b) {
+    const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+    const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+    const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+    const l_ = Math.cbrt(l),
+        m_ = Math.cbrt(m),
+        s_ = Math.cbrt(s);
+    return [
+        0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+        1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+        0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+    ];
+}
+
+function oklab_to_linear_srgb(L, a, b) {
+    const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+    const l = l_ * l_ * l_,
+        m = m_ * m_ * m_,
+        s = s_ * s_ * s_;
+    return [+4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s];
+}
+
+function compute_max_saturation(a, b) {
+    let k0, k1, k2, k3, k4, wl, wm, ws;
+    if (-1.88170328 * a - 0.80936493 * b > 1) {
+        k0 = 1.19086277;
+        k1 = 1.76576728;
+        k2 = 0.59662641;
+        k3 = 0.75515197;
+        k4 = 0.56771245;
+        wl = 4.0767416621;
+        wm = -3.3077115913;
+        ws = 0.2309699292;
+    } else if (1.81444104 * a - 1.19445276 * b > 1) {
+        k0 = 0.73956515;
+        k1 = -0.45954404;
+        k2 = 0.08285427;
+        k3 = 0.12541070;
+        k4 = 0.14503204;
+        wl = -1.2684380046;
+        wm = 2.6097574011;
+        ws = -0.3413193965;
+    } else {
+        k0 = 1.35733652;
+        k1 = -0.00915799;
+        k2 = -1.15130210;
+        k3 = -0.50559606;
+        k4 = 0.00692167;
+        wl = -0.0041960863;
+        wm = -0.7034186147;
+        ws = 1.7076147010;
+    }
+    let S = k0 + k1 * a + k2 * b + k3 * a * a + k4 * a * b;
+    const kl = 0.3963377774 * a + 0.2158037573 * b;
+    const km = -0.1055613458 * a - 0.0638541728 * b;
+    const ks = -0.0894841775 * a - 1.2914855480 * b;
+    const l_ = 1 + S * kl,
+        m_ = 1 + S * km,
+        s_ = 1 + S * ks;
+    const l = l_ * l_ * l_,
+        m = m_ * m_ * m_,
+        sv = s_ * s_ * s_;
+    const l_dS = 3 * kl * l_ * l_,
+        m_dS = 3 * km * m_ * m_,
+        s_dS = 3 * ks * s_ * s_;
+    const l_dS2 = 6 * kl * kl * l_,
+        m_dS2 = 6 * km * km * m_,
+        s_dS2 = 6 * ks * ks * s_;
+    const f = wl * l + wm * m + ws * sv,
+        f1 = wl * l_dS + wm * m_dS + ws * s_dS,
+        f2 = wl * l_dS2 + wm * m_dS2 + ws * s_dS2;
+    return S - f * f1 / (f1 * f1 - 0.5 * f * f2);
+}
+
+function find_cusp(a, b) {
+    const S = compute_max_saturation(a, b);
+    const [r, g, bv] = oklab_to_linear_srgb(1, S * a, S * b);
+    const Lc = Math.cbrt(1 / Math.max(r, g, bv));
+    return [Lc, Lc * S];
+}
+
+function find_gamut_intersection(a, b, L1, C1, L0, cusp) {
+    if (!cusp) cusp = find_cusp(a, b);
+    const [cL, cC] = cusp;
+    let t;
+    if ((L1 - L0) * cC - (cL - L0) * C1 <= 0) {
+        t = cC * L0 / (C1 * cL + cC * (L0 - L1));
+    } else {
+        t = cC * (L0 - 1) / (C1 * (cL - 1) + cC * (L0 - L1));
+        const dL = L1 - L0,
+            dC = C1;
+        const kl = 0.3963377774 * a + 0.2158037573 * b;
+        const km = -0.1055613458 * a - 0.0638541728 * b;
+        const ks = -0.0894841775 * a - 1.2914855480 * b;
+        const Lp = L0 * (1 - t) + t * L1,
+            Cp = t * C1;
+        const l_ = Lp + Cp * kl,
+            m_ = Lp + Cp * km,
+            s_ = Lp + Cp * ks;
+        const l = l_ * l_ * l_,
+            m = m_ * m_ * m_,
+            sv = s_ * s_ * s_;
+        const l_dt = dL + dC * kl,
+            m_dt = dL + dC * km,
+            s_dt = dL + dC * ks;
+        const ldt = 3 * l_dt * l_ * l_,
+            mdt = 3 * m_dt * m_ * m_,
+            sdt = 3 * s_dt * s_ * s_;
+        const ldt2 = 6 * l_dt * l_dt * l_,
+            mdt2 = 6 * m_dt * m_dt * m_,
+            sdt2 = 6 * s_dt * s_dt * s_;
+        const r0 = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * sv - 1;
+        const r1 = 4.0767416621 * ldt - 3.3077115913 * mdt + 0.2309699292 * sdt;
+        const r2 = 4.0767416621 * ldt2 - 3.3077115913 * mdt2 + 0.2309699292 * sdt2;
+        const u_r = r1 / (r1 * r1 - 0.5 * r0 * r2),
+            t_r = -r0 * u_r;
+        const g0 = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * sv - 1;
+        const g1 = -1.2684380046 * ldt + 2.6097574011 * mdt - 0.3413193965 * sdt;
+        const g2 = -1.2684380046 * ldt2 + 2.6097574011 * mdt2 - 0.3413193965 * sdt2;
+        const u_g = g1 / (g1 * g1 - 0.5 * g0 * g2),
+            t_g = -g0 * u_g;
+        const bv0 = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * sv - 1;
+        const bv1 = -0.0041960863 * ldt - 0.7034186147 * mdt + 1.7076147010 * sdt;
+        const bv2 = -0.0041960863 * ldt2 - 0.7034186147 * mdt2 + 1.7076147010 * sdt2;
+        const u_b = bv1 / (bv1 * bv1 - 0.5 * bv0 * bv2),
+            t_b = -bv0 * u_b;
+        t += Math.min(u_r >= 0 ? t_r : Infinity, u_g >= 0 ? t_g : Infinity, u_b >= 0 ? t_b : Infinity);
+    }
+    return t;
+}
+
+function toe(x) {
+    const k1 = 0.206,
+        k2 = 0.03,
+        k3 = (1 + k1) / (1 + k2);
+    return 0.5 * (k3 * x - k1 + Math.sqrt((k3 * x - k1) ** 2 + 4 * k2 * k3 * x));
+}
+
+function toe_inv(x) {
+    const k1 = 0.206,
+        k2 = 0.03,
+        k3 = (1 + k1) / (1 + k2);
+    return (x * x + k1 * x) / (k3 * (x + k2));
+}
+// ── OKHSV ────────────────────────────────────────────────────────────────────
+function okhsv_to_srgb(h, s, v) {
+    const a_ = Math.cos(2 * PI * h),
+        b_ = Math.sin(2 * PI * h);
+    const [cL, cC] = find_cusp(a_, b_);
+    const S_max = cC / cL,
+        T_max = cC / (1 - cL),
+        S_0 = 0.5,
+        k = 1 - S_0 / S_max;
+    const L_v = 1 - s * S_0 / (S_0 + T_max - T_max * k * s);
+    const C_v = s * T_max * S_0 / (S_0 + T_max - T_max * k * s);
+    let L = v * L_v,
+        C = v * C_v;
+    const L_vt = toe_inv(L_v),
+        C_vt = C_v * L_vt / L_v;
+    const L_new = toe_inv(L);
+    C = C * L_new / L;
+    L = L_new;
+    const [rs, gs, bs] = oklab_to_linear_srgb(L_vt, a_ * C_vt, b_ * C_vt);
+    const sc = Math.cbrt(1 / Math.max(rs, gs, bs, 0));
+    L *= sc;
+    C *= sc;
+    const [rl, gl, bl] = oklab_to_linear_srgb(L, C * a_, C * b_);
+    return [srgb_tf(rl), srgb_tf(gl), srgb_tf(bl)];
+}
+
+function srgb_to_okhsv(r, g, b) {
+    const [L, a, bv] = linear_srgb_to_oklab(srgb_tf_inv(r), srgb_tf_inv(g), srgb_tf_inv(b));
+    const C = Math.sqrt(a * a + bv * bv),
+        a_ = a / C,
+        b_ = bv / C;
+    const h = ((0.5 + 0.5 * Math.atan2(-bv, -a) / PI) % 1 + 1) % 1;
+    const [cL, cC] = find_cusp(a_, b_);
+    const S_max = cC / cL,
+        T_max = cC / (1 - cL),
+        S_0 = 0.5,
+        k = 1 - S_0 / S_max;
+    const t = T_max / (C + L * T_max),
+        L_v = t * L,
+        C_v = t * C;
+    const L_vt = toe_inv(L_v),
+        C_vt = C_v * L_vt / L_v;
+    const [rs, gs, bs] = oklab_to_linear_srgb(L_vt, a_ * C_vt, b_ * C_vt);
+    const sc = Math.cbrt(1 / Math.max(rs, gs, bs, 0));
+    const v = toe(L / sc) / L_v,
+        sv = (S_0 + T_max) * C_v / ((T_max * S_0) + T_max * k * C_v);
+    return [h, clamp(sv, 0, 1), clamp(v, 0, 1)];
+}
+// ── OKHSL ────────────────────────────────────────────────────────────────────
+function get_ST_mid(a_, b_) {
+    const S = 0.11516993 + 1 / (7.44778970 + 4.15901240 * b_ + a_ * (-2.19557347 + 1.75198401 * b_ + a_ * (-2.13704948 - 10.02301043 * b_ + a_ * (-4.24894561 + 5.38770819 * b_ + 4.69891013 * a_))));
+    const T = 0.11239642 + 1 / (1.61320320 - 0.68124379 * b_ + a_ * (0.40370612 + 0.90148123 * b_ + a_ * (-0.27087943 + 0.61223990 * b_ + a_ * (0.00299215 - 0.45399568 * b_ - 0.14661872 * a_))));
+    return [S, T];
+}
+
+function get_Cs(L, a_, b_) {
+    const cusp = find_cusp(a_, b_),
+        [cL, cC] = cusp;
+    const C_max = find_gamut_intersection(a_, b_, L, 1, L, cusp);
+    const S_max = cC / cL,
+        T_max = cC / (1 - cL);
+    const k = C_max / Math.min(L * S_max, (1 - L) * T_max);
+    const [S_mid, T_mid] = get_ST_mid(a_, b_);
+    const C_a = L * S_mid,
+        C_b = (1 - L) * T_mid;
+    const C_mid = 0.9 * k * Math.sqrt(Math.sqrt(1 / (1 / (C_a ** 4) + 1 / (C_b ** 4))));
+    const Ca0 = L * 0.4,
+        Cb0 = (1 - L) * 0.8;
+    const C_0 = Math.sqrt(1 / (1 / (Ca0 * Ca0) + 1 / (Cb0 * Cb0)));
+    return [C_0, C_mid, C_max];
+}
+
+function okhsl_to_srgb(h, s, l) {
+    if (l === 1) return [1, 1, 1];
+    if (l === 0) return [0, 0, 0];
+    const a_ = Math.cos(2 * PI * h),
+        b_ = Math.sin(2 * PI * h);
+    const L = toe_inv(l),
+        [C_0, C_mid, C_max] = get_Cs(L, a_, b_);
+    const mid = 0.8,
+        mid_inv = 1.25;
+    let C, t, k_0, k_1, k_2;
+    if (s < mid) {
+        t = mid_inv * s;
+        k_1 = mid * C_0;
+        k_2 = 1 - k_1 / C_mid;
+        C = t * k_1 / (1 - k_2 * t);
+    } else {
+        t = (s - mid) / (1 - mid);
+        k_0 = C_mid;
+        k_1 = (1 - mid) * C_mid * C_mid * mid_inv * mid_inv / C_0;
+        k_2 = 1 - k_1 / (C_max - C_mid);
+        C = k_0 + t * k_1 / (1 - k_2 * t);
+    }
+    const [rl, gl, bl] = oklab_to_linear_srgb(L, C * a_, C * b_);
+    return [srgb_tf(rl), srgb_tf(gl), srgb_tf(bl)];
+}
+
+function srgb_to_okhsl(r, g, b) {
+    const [L, a, bv] = linear_srgb_to_oklab(srgb_tf_inv(r), srgb_tf_inv(g), srgb_tf_inv(b));
+    const C = Math.sqrt(a * a + bv * bv),
+        a_ = a / C,
+        b_ = bv / C;
+    const h = ((0.5 + 0.5 * Math.atan2(-bv, -a) / PI) % 1 + 1) % 1;
+    const [C_0, C_mid, C_max] = get_Cs(L, a_, b_);
+    const mid = 0.8,
+        mid_inv = 1.25;
+    let s;
+    if (C < C_mid) {
+        const k_1 = mid * C_0,
+            k_2 = 1 - k_1 / C_mid;
+        s = (C / (k_1 + k_2 * C)) * mid;
+    } else {
+        const k_0 = C_mid,
+            k_1 = (1 - mid) * C_mid * C_mid * mid_inv * mid_inv / C_0,
+            k_2 = 1 - k_1 / (C_max - C_mid);
+        s = mid + (1 - mid) * ((C - k_0) / (k_1 + k_2 * (C - k_0)));
+    }
+    return [h, clamp(s, 0, 1), clamp(toe(L), 0, 1)];
+}
+
+// ── Mode dispatch ────────────────────────────────────────────────────────────
+let mode = localStorage.getItem('mode') || 'hsv';
+
+function colorToSrgb(h, s, v) {
+    return mode === 'hsv' ? okhsv_to_srgb(h, s, v) : okhsl_to_srgb(h, s, v);
+}
+
+function srgbToColor(r, g, b) {
+    return mode === 'hsv' ? srgb_to_okhsv(r, g, b) : srgb_to_okhsl(r, g, b);
+}
+
+function getPerceptualColorDifference(r1, g1, b1, r2, g2, b2) {
+    r1 *= 255; g1 *= 255; b1 *= 255;
+    r2 *= 255; g2 *= 255; b2 *= 255;
+
+    const rMean = (r1 + r2) / 2;
+    const r = r1 - r2;
+    const g = g1 - g2;
+    const b = b1 - b2;
+
+    const weightR = 2 + (rMean / 256);
+    const weightG = 4.0;
+    const weightB = 2 + ((255 - rMean) / 256);
+    return Math.sqrt((weightR * r * r) + (weightG * g * g) + (weightB * b * b));
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  Layout — responsive geometry
+// ════════════════════════════════════════════════════════════════════
+const MAX_SIZE = 280;
+const SHELL_PAD = 28;
+const HUE_RING_ROTATION_OFFSET = -0.25;
+const dpr = window.devicePixelRatio || 1;
+let SIZE, RING, INNER_R, SQ_SIDE, SQ_OFF;
+
+function computeGeometry() {
+    // SIZE = max 280, shrinks with viewport width
+    const EXTRA_HEIGHT_MARGIN = alphaVisible ? 27 : 0;
+    SIZE = Math.max(80, Math.min(MAX_SIZE, window.innerWidth - SHELL_PAD * 2 - 8));
+    SIZE = Math.min(window.innerHeight - 15 - EXTRA_HEIGHT_MARGIN, SIZE);
+    // proportionally scale ring and gap
+    RING = Math.max(8, Math.round(SIZE * 20 / 280));
+    const gap = Math.max(4, Math.round(SIZE * 10 / 280));
+    INNER_R = SIZE / 2 - RING - gap;
+    SQ_SIDE = Math.floor(INNER_R * Math.SQRT2);
+    SQ_OFF = (SIZE - SQ_SIDE) / 2;
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  State
+// ════════════════════════════════════════════════════════════════════
+let state = {
+    h: 0.07,
+    s: 0.85,
+    v: 0.88,
+    a: 1
+};
+let rgbState = {
+    r: 0,
+    g: 0,
+    b: 0,
+    a: 1
+};
+let alphaVisibleRaw = localStorage.getItem('picker-alpha');
+let alphaVisible = alphaVisibleRaw && alphaVisibleRaw !== 'false';
+
+/**
+ * Called on every color change.
+ * Payload: { h, s, v, a, r, g, b, hex, css, mode }
+ * In HSV mode: v = value (0–1). In HSL mode: v = lightness (0–1).
+ */
+window.onColorChange = null;
+
+// ════════════════════════════════════════════════════════════════════
+//  DOM refs
+// ════════════════════════════════════════════════════════════════════
+const pickerShell = document.getElementById('picker-shell');
+const wheelWrap = document.getElementById('wheel-wrap');
+const hueCanvas = document.getElementById('hue-canvas');
+const sqCanvas = document.getElementById('sq-canvas');
+const hueThumb = document.getElementById('hue-thumb');
+const sqThumb = document.getElementById('sq-thumb');
+const closeBtn = document.getElementById('close-btn');
+const alphaToggleBtn = document.getElementById('alpha-toggle-btn');
+const modeToggle = document.getElementById('mode-toggle');
+const modeA = document.getElementById('mode-a');
+const modeB = document.getElementById('mode-b');
+const alphaRow = document.getElementById('alpha-row');
+const alphaLabel = document.getElementById('alpha-label');
+const alphaOuter = document.getElementById('alpha-outer');
+const alphaTrack = document.getElementById('alpha-track');
+const alphaCanvas = document.getElementById('alpha-canvas');
+const alphaThumb = document.getElementById('alpha-thumb');
+const previewRow = document.getElementById('preview-row');
+const swatchFill = document.getElementById('swatch-fill');
+const valHex = document.getElementById('val-hex');
+const valRgb = document.getElementById('val-rgb');
+const valHsv = document.getElementById('val-hsv');
+const valModeLabel = document.getElementById('val-mode-label');
+const qrBtn = document.getElementById('qr-btn');
+const qrOverlay = document.getElementById('qr-overlay');
+
+// ════════════════════════════════════════════════════════════════════
+//  Canvas helpers
+// ════════════════════════════════════════════════════════════════════
+let hueCtx, sqCtx, alphaCtx, alphaW;
+
+function makeCtx(canvas, w, h) {
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    return ctx;
+}
+
+function initCanvases() {
+    hueCtx = makeCtx(hueCanvas, SIZE, SIZE);
+    sqCtx = makeCtx(sqCanvas, SQ_SIDE, SQ_SIDE);
+    sqCanvas.style.left = SQ_OFF + 'px';
+    sqCanvas.style.top = SQ_OFF + 'px';
+    // Alpha width = SIZE (inner) - label(28) - gap(10)
+    alphaW = Math.max(40, SIZE - 38);
+    alphaCtx = makeCtx(alphaCanvas, alphaW, 12);
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  Draw functions
+// ════════════════════════════════════════════════════════════════════
+// Cache for last drawn image
+const _sqRingCache = {
+    lastSize: null,
+    img: null
+};
+
+function drawHueRing() {
+    const W = Math.round(SIZE * dpr);
+    if (_sqRingCache.lastSize !== W || _sqRingCache.img === null) {
+        _sqRingCache.lastSize = W;
+        const img = hueCtx.createImageData(W, W);
+        const cx = W / 2,
+              cy = W / 2;
+        const r_out = SIZE / 2 * dpr,
+              r_in = (SIZE / 2 - RING) * dpr;
+        for (let py = 0; py < W; py++) {
+            for (let px = 0; px < W; px++) {
+                const dx = px - cx,
+                    dy = py - cy,
+                    d = Math.sqrt(dx * dx + dy * dy);
+                if (d < r_in || d > r_out) continue;
+                const h = (Math.atan2(dy, dx) / (2 * PI) + 0.25 - HUE_RING_ROTATION_OFFSET) % 1;
+                const [r, g, b] = okhsv_to_srgb(h, 0.93, 1);
+                const i = (py * W + px) * 4;
+                img.data[i] = clamp(r, 0, 1) * 255 | 0;
+                img.data[i + 1] = clamp(g, 0, 1) * 255 | 0;
+                img.data[i + 2] = clamp(b, 0, 1) * 255 | 0;
+                img.data[i + 3] = 255;
+            }
+        }
+        _sqRingCache.img = img;
+    }
+    hueCtx.putImageData(_sqRingCache.img, 0, 0);
+}
+
+// Cache for last drawn image
+const _sqGradCache = {
+    lastHue: null,
+    lastW: null,
+    img: null
+};
+
+function drawSqGradient() {
+    const W = Math.round(SQ_SIDE * dpr);
+    if (!_sqGradCache.img || W != _sqGradCache.lastW || state.h !== _sqGradCache.lastHue) {
+        _sqGradCache.lastHue = state.h;
+        _sqGradCache.lastW = W;
+
+        const img = sqCtx.createImageData(W, W);
+        for (let py = 0; py < W; py++) {
+            const vl = 1 - py / W;
+            for (let px = 0; px < W; px++) {
+                const s = px / W;
+                const [r, g, b] = colorToSrgb(state.h, s, vl);
+                const i = (py * W + px) * 4;
+                img.data[i] = clamp(r, 0, 1) * 255 | 0;
+                img.data[i + 1] = clamp(g, 0, 1) * 255 | 0;
+                img.data[i + 2] = clamp(b, 0, 1) * 255 | 0;
+                img.data[i + 3] = 255;
+            }
+        }
+        _sqGradCache.img = img;
+    }
+    sqCtx.putImageData(_sqGradCache.img, 0, 0);
+}
+
+function drawAlphaSlider() {
+    if (!alphaCtx) return;
+    const w = alphaW,
+        h = 12,
+        cs = 6;
+    for (let x = 0; x < w; x += cs)
+        for (let y = 0; y < h; y += cs) {
+            alphaCtx.fillStyle = ((Math.floor(x / cs) + Math.floor(y / cs)) % 2 === 0) ? '#2e2e34' : '#16161a';
+            alphaCtx.fillRect(x, y, cs, cs);
+        }
+    const [r, g, b] = colorToSrgb(state.h, state.s, state.v);
+    const ri = clamp(r, 0, 1) * 255 | 0,
+        gi = clamp(g, 0, 1) * 255 | 0,
+        bi = clamp(b, 0, 1) * 255 | 0;
+    const grad = alphaCtx.createLinearGradient(0, 0, w, 0);
+    grad.addColorStop(0, `rgba(${ri},${gi},${bi},0)`);
+    grad.addColorStop(1, `rgba(${ri},${gi},${bi},1)`);
+    alphaCtx.fillStyle = grad;
+    alphaCtx.fillRect(0, 0, w, h);
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  Apply dimensions & vertical visibility
+// ════════════════════════════════════════════════════════════════════
+function applyDimensions() {
+    const shellW = Math.min(window.innerWidth - 8, SIZE + SHELL_PAD * 2);
+    pickerShell.style.width = shellW + 'px';
+    wheelWrap.style.width = SIZE + 'px';
+    wheelWrap.style.height = SIZE + 'px';
+}
+
+function checkVertical() {
+    // Estimate total picker height with current contents
+    const alphaH = alphaVisible ? 24 + 18 : 0; // row + gap
+    const needed = SHELL_PAD * 2 + SIZE + 18 + alphaH + 56 + 18 + 36 + 20;
+    const hide = window.innerHeight < needed;
+    previewRow.style.display = hide ? 'none' : '';
+}
+
+function applyAlphaVisibility() {
+    alphaRow.style.display = alphaVisible ? '' : 'none';
+    alphaToggleBtn.classList.toggle('dimmed', !alphaVisible);
+    localStorage.setItem('picker-alpha', String(alphaVisible));
+    checkVertical();
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  Full update pass
+// ════════════════════════════════════════════════════════════════════
+function toHex2(n) {
+    return (n & 0xff).toString(16).padStart(2, '0');
+}
+
+function updateAll(no_change = false) {
+    // Hue thumb
+    const ringR = SIZE / 2 - RING / 2;
+    const angle = state.h * 2 * PI - PI / 2 + (2 * PI * HUE_RING_ROTATION_OFFSET);
+    hueThumb.style.left = (SIZE / 2 + ringR * Math.cos(angle)) + 'px';
+    hueThumb.style.top = (SIZE / 2 + ringR * Math.sin(angle)) + 'px';
+    // Square thumb
+    sqThumb.style.left = (SQ_OFF + state.s * SQ_SIDE) + 'px';
+    sqThumb.style.top = (SQ_OFF + (1 - state.v) * SQ_SIDE) + 'px';
+    // Alpha thumb
+    alphaThumb.style.left = clamp(state.a * alphaW, 0, alphaW) + 'px';
+    alphaThumb.style.top = '50%';
+    drawSqGradient();
+    drawAlphaSlider();
+    // Color values
+    const [r, g, b] = colorToSrgb(state.h, state.s, state.v);
+    rgbState = {
+        r,
+        g,
+        b,
+        a: state.a
+    };
+    const ri = Math.round(clamp(r, 0, 1) * 255),
+        gi = Math.round(clamp(g, 0, 1) * 255),
+        bi = Math.round(clamp(b, 0, 1) * 255);
+    const hex = '#' + toHex2(ri) + toHex2(gi) + toHex2(bi);
+    swatchFill.style.background = `rgba(${ri},${gi},${bi},${state.a})`;
+    valHex.textContent = hex;
+    valRgb.textContent = `${ri}  ${gi}  ${bi}`;
+    valModeLabel.textContent = mode.toUpperCase();
+    valHsv.textContent = `${Math.round(state.h*360)}°  ${Math.round(state.s*100)}%  ${Math.round(state.v*100)}% ${mode==='hsv'?'V':'L'}`;
+    // Thumb fill colors
+    const [hr, hg, hb] = okhsv_to_srgb(state.h, 1, 1);
+    hueThumb.style.background = `rgb(${clamp(hr,0,1)*255|0},${clamp(hg,0,1)*255|0},${clamp(hb,0,1)*255|0})`;
+    sqThumb.style.background = `rgb(${ri},${gi},${bi})`;
+    alphaLabel.textContent = `${Math.round(state.a * 100)}%`;
+    // Callback
+    if (!no_change && typeof window.onColorChange === 'function') {
+        window.onColorChange({
+            h: state.h,
+            s: state.s,
+            v: state.v,
+            a: state.a,
+            r: ri,
+            g: gi,
+            b: bi,
+            hex,
+            mode
+        });
+    }
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  Full rebuild (called on init + resize)
+// ════════════════════════════════════════════════════════════════════
+function rebuild() {
+    computeGeometry();
+    applyDimensions();
+    applyAlphaVisibility(); // also calls checkVertical
+    initCanvases();
+    drawHueRing();
+    updateAll();
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  Interaction — drag
+// ════════════════════════════════════════════════════════════════════
+function evXY(e) {
+    const t = e.touches?.[0] ?? e;
+    return [t.clientX, t.clientY];
+}
+
+function hitRing(e) {
+    const rc = hueCanvas.getBoundingClientRect();
+    const [ex, ey] = evXY(e);
+    const dx = ex - (rc.left + rc.width / 2),
+        dy = ey - (rc.top + rc.height / 2);
+    const d = Math.sqrt(dx * dx + dy * dy);
+    return d >= INNER_R - 6 && d <= SIZE / 2 + 6;
+}
+
+function hitSquare(e) {
+    const rc = sqCanvas.getBoundingClientRect();
+    const [ex, ey] = evXY(e);
+    return ex >= rc.left - 4 && ex <= rc.right + 4 && ey >= rc.top - 4 && ey <= rc.bottom + 4;
+}
+let dragging = null;
+
+function doHue(e) {
+    const rc = hueCanvas.getBoundingClientRect();
+    const [ex, ey] = evXY(e);
+    const dx = ex - (rc.left + rc.width / 2),
+        dy = ey - (rc.top + rc.height / 2);
+    state.h = ((Math.atan2(dy, dx) / (2 * PI) + 0.25 + 1 - HUE_RING_ROTATION_OFFSET) % 1);
+    updateAll();
+}
+
+function doSq(e) {
+    const rc = sqCanvas.getBoundingClientRect();
+    const [ex, ey] = evXY(e);
+    state.s = clamp((ex - rc.left) / rc.width, 0, 1);
+    state.v = clamp(1 - (ey - rc.top) / rc.height, 0, 1);
+    updateAll();
+}
+
+function doAlpha(e) {
+    const rc = alphaTrack.getBoundingClientRect();
+    const [ex] = evXY(e);
+    state.a = clamp((ex - rc.left) / rc.width, 0, 1);
+    updateAll();
+}
+
+const debounce = (fn, delay) => {
+    let timer;
+    return (e) => { clearTimeout(timer); timer = setTimeout(() => fn(e), delay); };
+};
+const debouncedDoHue = debounce(doHue, 50); 
+const debouncedDoSq = debounce(doSq, 50);
+
+function onPointerDown(e) {
+    if (hitRing(e)) {
+        dragging = 'hue';
+        debouncedDoHue(e);
+    } else if (hitSquare(e)) {
+        dragging = 'sq';
+        debouncedDoSq(e);
+    }
+}
+hueCanvas.addEventListener('mousedown', onPointerDown);
+hueCanvas.addEventListener('touchstart', onPointerDown, {
+    passive: true
+});
+sqCanvas.addEventListener('mousedown', onPointerDown);
+sqCanvas.addEventListener('touchstart', onPointerDown, {
+    passive: true
+});
+alphaOuter.addEventListener('mousedown', e => {
+    dragging = 'alpha';
+    doAlpha(e);
+});
+alphaOuter.addEventListener('touchstart', e => {
+    dragging = 'alpha';
+    doAlpha(e);
+}, {
+    passive: true
+});
+window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    e.preventDefault();
+    if (dragging === 'hue') doHue(e);
+    else if (dragging === 'sq') doSq(e);
+    else doAlpha(e);
+}, {
+    passive: false
+});
+window.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    if (dragging === 'hue') doHue(e);
+    else if (dragging === 'sq') doSq(e);
+    else doAlpha(e);
+}, {
+    passive: false
+});
+window.addEventListener('mouseup', () => {
+    dragging = null;
+});
+window.addEventListener('touchend', () => {
+    dragging = null;
+});
+
+// ════════════════════════════════════════════════════════════════════
+//  Button handlers
+// ════════════════════════════════════════════════════════════════════
+// ── Close page ───────────────────────────────────────────────────────
+closeBtn.addEventListener('click', () => {
+    window.sendWS({
+        type: 'close'
+    });
+});
+
+// ── Alpha visibility toggle ──────────────────────────────────────────
+alphaToggleBtn.addEventListener('click', () => {
+    alphaVisible = !alphaVisible;
+    applyAlphaVisibility();
+    rebuild();
+    // If we just hid alpha, reset alpha to 1 so display is consistent
+    // (remove this if you want alpha preserved when hidden)
+});
+
+// ── Mode toggle (HSV ↔ HSL) ──────────────────────────────────────────
+function updateMode(toMode, r, g, b) {
+    localStorage.setItem('mode', mode);
+    const [h, s, v] = srgbToColor(r, g, b);
+    state.h = h;
+    state.s = s;
+    state.v = v;
+    if (mode === 'hsv') {
+        modeA.textContent = 'V';
+        modeA.className = 'active-span';
+        modeB.textContent = 'L';
+        modeB.className = '';
+    } else {
+        modeA.textContent = 'L';
+        modeA.className = 'active-span';
+        modeB.textContent = 'V';
+        modeB.className = '';
+    }
+    updateAll();
+}
+modeToggle.addEventListener('click', () => {
+    const [r, g, b] = colorToSrgb(state.h, state.s, state.v);
+    mode = mode === 'hsv' ? 'hsl' : 'hsv';
+    updateMode(mode, r, g, b);
+});
+
+// ── QR button (placeholder) ──────────────────────────────────────────
+qrBtn.addEventListener('click', () => {
+    console.log('[picker] Locate QR clicked — current color:', valHex.textContent);
+});
+
+// ════════════════════════════════════════════════════════════════════
+//  Resize  (debounced 150ms)
+// ════════════════════════════════════════════════════════════════════
+let resizeTimer;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(rebuild, 150);
+});
+
+// ════════════════════════════════════════════════════════════════════
+//  Init
+// ════════════════════════════════════════════════════════════════════
+rebuild();
+if (mode !== 'hsv') {
+    const [r, g, b] = colorToSrgb(state.h, state.s, state.v);
+    updateMode(mode, r, g, b);
+}
+
+function handleMessages(msg) {
+    if (msg.type === 'sync' && !dragging) {
+        const SAME_THRESH = 1e-4;
+        let [r, g, b] = [msg.selected_rgb[0] / 255, msg.selected_rgb[1] / 255, msg.selected_rgb[2] / 255];
+        if (!(Math.abs(r - rgbState.r) < SAME_THRESH && Math.abs(g - rgbState.g) < SAME_THRESH && Math.abs(b - rgbState.b) < SAME_THRESH)) {
+            const [h, s, v] = srgbToColor(r, g, b);
+            const old_h = state.h;
+            state.h = h;
+            state.s = s;
+            state.v = v;
+
+            // Measure color distance if we don't change h
+            const withOldH = colorToSrgb(old_h, s, v);
+            const dist = getPerceptualColorDifference(withOldH[0], withOldH[1], withOldH[2], r, g, b);
+            if (dist < 1) {
+                state.h = old_h;
+                r = withOldH[0]; g = withOldH[1]; b = withOldH[2];
+            }
+
+            rgbState.r = r;
+            rgbState.g = g;
+            rgbState.b = b;
+        }
+        state.a = msg.opacity;
+        qrOverlay.style.display = msg.is_connected ? 'none' : 'flex';
+        updateAll(true);
+    }
+}
+
+let WS_URL = 'ws://127.0.0.1:8765/ws';
+setTimeout(() => {
+    'use strict';
+    const RETRY_MS = 5000;
+    let ws = null;
+    let retryId = null;
+
+    // ── Connect / reconnect ─────────────────────────────────────────
+    function connect() {
+        console.log('[ws] connecting to', WS_URL);
+        try {
+            ws = new WebSocket(WS_URL);
+        } catch (err) {
+            console.warn('[ws] could not create WebSocket:', err);
+            scheduleRetry();
+            return;
+        }
+        ws.addEventListener('open', () => {
+            clearTimeout(retryId);
+            retryId = null;
+            console.log('[ws] connected');
+        });
+        ws.addEventListener('close', (e) => {
+            console.warn('[ws] closed (code ' + e.code + ') — retry in ' + RETRY_MS / 1000 + 's');
+            ws = null;
+            scheduleRetry();
+        });
+        ws.addEventListener('error', () => {
+            // 'close' fires right after, so retry is handled there
+        });
+        ws.addEventListener('message', (evt) => {
+            let msg;
+            try {
+                msg = JSON.parse(evt.data);
+            } catch (err) {
+                console.warn('[ws] non-JSON message', evt.data);
+                return;
+            }
+            // console.log('[ws] ←', msg);
+            // ── Handle messages from Python ──────────────────────────
+            handleMessages(msg);
+        });
+    }
+
+    function scheduleRetry() {
+        if (!retryId) {
+            retryId = setTimeout(connect, RETRY_MS);
+        }
+    }
+
+    // ── Public send helper ──────────────────────────────────────────
+    /**
+     * window.sendWS(obj)
+     * Serialize obj as JSON and send to the Python server.
+     * Returns true on success, false if the socket is not open.
+     */
+    window.sendWS = function(obj) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(obj));
+            return true;
+        }
+        return false;
+    };
+
+    // ── Hook color picker callback ──────────────────────────────────
+    window.onColorChange = color => {
+        window.sendWS({
+            type: 'c',
+            ...color
+        });
+    };
+    // ── Hook QR button ──────────────────────────────────────────────
+    const qrBtn = document.getElementById('qr-btn');
+    if (qrBtn)
+        qrBtn.addEventListener('click', () => { window.sendWS({ type: 'qr' }); });
+
+    // ── Start ───────────────────────────────────────────────────────
+    connect();
+}, 50);
+        </script>
+    </body>
+</html>

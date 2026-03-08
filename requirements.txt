@@ -1,0 +1,9 @@
+pyautogui 
+pyzbar
+pygetwindow
+fastapi
+PySide6
+uvicorn
+PyQt6
+PyQt6-WebEngine
+websockets

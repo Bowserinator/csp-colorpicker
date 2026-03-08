@@ -1,0 +1,54 @@
+show-fixes = true
+line-length = 150
+
+[format]
+docstring-code-format = true
+skip-magic-trailing-comma = true
+
+[lint]
+extend-select = [ 
+    "F", "W", "E", "B", # Pyflakes,pycodestyle
+    "I", # Sort imports
+    "UP", # Update to new py features
+    "C4", # incorrect comprehensions
+    "ISC", # good string concat
+    "ICN", # common import conventions
+    "RET", # good return practices
+    "SIM", # common simplifications
+    "TID", # import practices
+    "TD", # TODO comments
+    "A", # shadowed builtins
+    "FBT", # boolean traps
+    "N", # naming conventions
+    "G", # builtin logging
+    "FIX", # fixme
+    "INP", # implict namespace package
+    "PIE", # unnecessary stuff used
+    "SLOT", # tuple subclass
+    "TC", # type checking
+    "ARG", # unused arguments
+    "PD", # pandas
+    "PLE", # more errors + san checks
+    "PLR", # refactor
+    "DOC", # docstrings
+    "PERF", # performance
+    "PLW", # warnings
+    "RUF", # ruff specific rules
+    "FURB"
+]
+
+ignore = [
+    "UP009",
+    "COM812",
+    "PLR0913",
+    "G004",
+    "PLR0912", "PLR0915",
+    "N806",
+    "PLR2004",
+    "PLR0911",
+    "RUF012",
+    "E501",
+    "TD002", "TD005", "TD003",
+    "PLW2901",
+    "E741"
+]
