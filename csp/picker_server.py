@@ -83,10 +83,12 @@ def handle_message(msg: dict) -> None:
 
     # ── Color change from the picker ──────────────────────────────
     if msg_type == "c": # colorChange
-        r = msg.get("r", 0)
-        g = msg.get("g", 0)
-        b = msg.get("b", 0)
+        r = msg.get("r", 0) or 0 # In case NaN
+        g = msg.get("g", 0) or 0
+        b = msg.get("b", 0) or 0
         alpha = msg.get("a", 1.0)
+        if not alpha: # In case NaN -> None
+            alpha = 1
 
         if csp_client is not None:
             r, g, b = [round(x) for x in (r, g, b)]

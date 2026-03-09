@@ -368,10 +368,12 @@ const PI = Math.PI;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 function srgb_tf(a) {
+    if (Number.isNaN(a)) return 0;
     return a <= 0.0031308 ? 12.92 * a : 1.055 * Math.pow(a, 1 / 2.4) - 0.055;
 }
 
 function srgb_tf_inv(a) {
+    if (Number.isNaN(a)) return 0;
     return a > 0.04045 ? Math.pow((a + 0.055) / 1.055, 2.4) : a / 12.92;
 }
 
@@ -565,8 +567,11 @@ function srgb_to_okhsv(r, g, b) {
         C_vt = C_v * L_vt / L_v;
     const [rs, gs, bs] = oklab_to_linear_srgb(L_vt, a_ * C_vt, b_ * C_vt);
     const sc = Math.cbrt(1 / Math.max(rs, gs, bs, 0));
-    const v = toe(L / sc) / L_v,
+    let v = toe(L / sc) / L_v,
         sv = (S_0 + T_max) * C_v / ((T_max * S_0) + T_max * k * C_v);
+
+    if (Number.isNaN(sv)) sv = 0;
+    if (Number.isNaN(v)) v = 0;
     return [h, clamp(sv, 0, 1), clamp(v, 0, 1)];
 }
 // ── OKHSL ────────────────────────────────────────────────────────────────────
@@ -620,7 +625,7 @@ function okhsl_to_srgb(h, s, l) {
 }
 
 function srgb_to_okhsl(r, g, b) {
-    const [L, a, bv] = linear_srgb_to_oklab(srgb_tf_inv(r), srgb_tf_inv(g), srgb_tf_inv(b));
+    let [L, a, bv] = linear_srgb_to_oklab(srgb_tf_inv(r), srgb_tf_inv(g), srgb_tf_inv(b));
     const C = Math.sqrt(a * a + bv * bv),
         a_ = a / C,
         b_ = bv / C;
@@ -639,6 +644,8 @@ function srgb_to_okhsl(r, g, b) {
             k_2 = 1 - k_1 / (C_max - C_mid);
         s = mid + (1 - mid) * ((C - k_0) / (k_1 + k_2 * (C - k_0)));
     }
+    if (Number.isNaN(s)) s = 0;
+    if (Number.isNaN(L)) L = 0;
     return [h, clamp(s, 0, 1), clamp(toe(L), 0, 1)];
 }
 
