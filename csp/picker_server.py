@@ -111,8 +111,6 @@ def handle_message(msg: dict) -> None:
                 # Cleanup old client instance
                 if csp_client is not None:
                     csp_client.client_socket.close()
-                if client_thread is not None:
-                    client_thread.stop()
 
                 csp_client = CSPClient(url, sync_rate=config.client_refresh_rate_s)
                 client_thread = threading.Thread(target=csp_client.connect, daemon=True)
